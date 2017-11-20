@@ -1,0 +1,35 @@
+#!/bin/sh
+set -x
+set -e
+
+# Set temp environment vars
+export GOPATH=${GOPATH:-"/tmp/go"}
+export GOHELPERS=${GOHELPERS:-"github.com/mitchellh/gox github.com/Masterminds/glide"}
+
+export PATH=${PATH}:${GOPATH}/bin
+export BUILDPATH=${BUILDPATH:-"$GOPATH/src/$PORTIA_VCS_URI"}
+export PKG_CONFIG_PATH="/usr/lib/pkgconfig/:/usr/local/lib/pkgconfig/"
+
+# Install build deps
+apk --no-cache --no-progress --virtual build-deps add ${APK_GLOBAL_BUILD} ${APK_BUILD_GOLANG}
+
+# Install golang helpers 
+# note(s): 
+# - the list of go packages can be override with `$GOHELPERS` build argument in the dockerfile)
+for GOLANG_VCS_URI in $GOLANG_VCS_BUILD
+do
+	go get -v ${GOLANG_HELPER_VCS_URI}
+done
+
+# Init go environment to build portia golang utilities
+mkdir -p $(dirname ${BUILDPATH})
+ln -s /helpers ${BUILDPATH}
+cd ${BUILDPATH}
+go get -v
+go build
+
+# Cleanup GOPATH
+rm -r ${GOPATH}
+
+# Remove build deps
+apk --no-cache --no-progress del build-deps

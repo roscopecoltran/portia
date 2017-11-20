@@ -1,0 +1,24 @@
+#!/bin/sh
+set -x
+set -e
+
+# Set aliases for python interpreter and pip package manager
+alias cpip="pip${PYTHON_VERSION}"
+alias cpy="python${PYTHON_VERSION}"
+
+# Set temp environment vars
+export PKG_CONFIG_PATH="/usr/lib/pkgconfig/:/usr/local/lib/pkgconfig/"
+
+# Install build deps
+apk --no-cache --no-progress --virtual build-deps add ${APK_GLOBAL_BUILD} ${APK_PYTHON_RUNTIME}
+
+# Install app dependencies
+cpip install --no-cache -e /app/slyd
+cpip install --no-cache -e /app/slybot
+cpy /app/portia_server/manage.py migrate
+
+# Cleanup GOPATH
+rm -r ${GOPATH}
+
+# Remove build deps
+apk --no-cache --no-progress del build-deps

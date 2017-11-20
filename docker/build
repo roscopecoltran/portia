@@ -1,0 +1,20 @@
+#!/bin/sh
+set -x
+set -e
+
+# save cuurent workdir
+CURRENT_DIR=`pwd`
+
+# build golang deps
+if [ "$(echo "${APK_GOLANG_ENABLED}" | tr '[:upper:]' '[:lower:]')" == "true" ]; then
+	chmod a+x /app/docker/build-golang
+	/app/docker/build-golang
+fi
+
+# build python deps
+if [ "$(echo "${APK_PYTHON_ENABLED}" | tr '[:upper:]' '[:lower:]')" == "true" ]; then
+	chmod a+x /app/docker/build-python
+	/app/docker/build-python
+fi
+
+cd ${CURRENT_DIR}

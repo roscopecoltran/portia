@@ -1,0 +1,76 @@
+FROM alpine-3.6
+
+# App configuration
+ENV PORTIA_PATH_DATA="/data" \
+	PORTIA_PATH_APP="/app" \
+	PORTIA_VCS_URI=${PORTIA_VCS_URI:-"github.com/scrapinghub/portia"}
+
+# Container specific packages version
+ARG GOSU_VERSION=${GOSU_VERSION:-"1.10"}
+ARG PIP_VERSION=${PIP_VERSION:-"1.10"}
+ARG PYTHON_VERSION=${PYTHON_VERSION:-"3"}
+ARG GOLANG_VERSION=${GOLANG_VERSION:-"1.9.2-r1"}
+
+# APK - global dependencies
+ARG APK_GLOBAL_RUNTIME=${APK_GLOBAL_RUNTIME:-"ca-certificates git libssh2 openssl"}
+ARG APK_GLOBAL_BUILD=${APK_GLOBAL_BUILD:-"go gcc musl-dev make cmake openssl-dev libssh2-dev"}
+ARG APK_GLOBAL_DEV=${APK_GLOBAL_DEV:-"nano bash tree"}
+
+# APK - golang (uncomment if needed)
+ARG APK_GOLANG_ENABLED=${APK_GOLANG_ENABLED:-"true"}
+ARG APK_GOLANG_RUNTIME=${APK_GOLANG_RUNTIME:-""}
+ARG APK_GOLANG_BUILD=${APK_GOLANG_BUILD:-"go gcc musl-dev make cmake openssl-dev libssh2-dev"}
+
+# APK - python (uncomment if needed)
+ARG APK_PYTHON_ENABLED=${APK_PYTHON_ENABLED:-"true"}
+ARG APK_PYTHON_RUNTIME=${APK_PYTHON_RUNTIME:-"python$PYTHON_VERSION"}
+ARG APK_PYTHON_BUILD=${APK_PYTHON_BUILD:-"python$PYTHON_VERSION-dev"}
+
+# APK - interpreters
+ARG APK_LANGS_RUNTIME=${APK_LANGS_RUNTIME:-"$APK_GOLANG_RUNTIME $APK_PYTHON2_RUNTIME $APK_PYTHON3_RUNTIME $APK_PHP7_RUNTIME"}
+
+# GO - helpers
+ARG GOLANG_VCS_BUILD=${GOLANG_VCS_BUILD:-"github.com/mitchellh/gox github.com/Masterminds/glide"}
+ARG GOLANG_VCS_RUNTIME=${GOLANG_VCS_RUNTIME:-""}
+
+# Install Gosu to /usr/local/bin/gosu
+ADD https://github.com/tianon/gosu/releases/download/${GOSU_VERSION}/gosu-amd64 /usr/local/sbin/gosu
+
+# Install runtime dependencies & create runtime user
+RUN chmod +x /usr/local/sbin/gosu \
+ 	&& apk --no-cache --no-progress add ${APK_GLOBAL_RUNTIME} ${APK_LANGS_RUNTIME}\
+ 	&& adduser -D app -h /data -s /bin/sh
+
+# Copy source code to the container & build it
+COPY provision.sh /app/provision.sh
+COPY slybot/requirements.txt /app/slybot/requirements.txt
+COPY slyd/requirements.txt /app/slyd/requirements.txt
+COPY portia_server/requirements.txt /app/portia_server/requirements.txt
+
+ADD docker /app/docker
+RUN ./docker/build.sh
+
+# NSSwitch configuration file
+COPY docker/nsswitch.conf /etc/nsswitch.conf
+
+ADD nginx /etc/nginx
+ADD . /app
+
+WORKDIR /app
+
+# Container configuration
+VOLUME ["/data"]
+EXPOSE 9001
+
+# Container entrypoint
+# ENTRYPOINT ["/app/docker/entry"]
+
+# Container run command
+# CMD ["/usr/local/sbin/gosu", "app", "/app/docker/entry"]
+CMD ["/app/docker/entry-dev"]
+
+# build: 	
+# $ docker build -t portia:alpine-3.6 --no-cache -f Dockerfile.alpine .
+
+# run: 		
+# $ docker --rm -ti -p 9001:9001 -v `pwd`/data:/data portia:alpine-3.6 server

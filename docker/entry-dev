@@ -1,0 +1,19 @@
+#!/bin/sh
+set -x
+set -e
+
+case "$1" in
+
+  'bash')
+	apk --no-cache --no-progress add nano bash tree
+  	exec /bin/bash $@
+	;;
+
+  'server')  	
+  	exec /app/docker/entry $@ ${ARG_DEV}
+  	;;
+
+  *)
+  	exec /app/docker/entry $@
+	;;
+esac
